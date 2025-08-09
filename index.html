@@ -1,0 +1,705 @@
+<!doctype html>
+<html lang="da">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MockUpper – Web & Mobile Mockups</title>
+  <meta name="description" content="Create detailed website and app mockups directly in the browser. Drag, drop, resize. Export as HTML/CSS or image.">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#60a5fa', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a'
+            }
+          },
+          boxShadow: {
+            smooth: '0 2px 10px rgba(0,0,0,0.08)'
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Interact.js for drag & resize -->
+  <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
+  <!-- html2canvas for image export -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+  <style>
+    :root {
+      --canvas-bg: #ffffff;
+    }
+
+    /* Scrollbars (subtle) */
+    ::-webkit-scrollbar { height: 8px; width: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 8px; }
+
+    /* Canvas base */
+    #canvas {
+      position: relative;
+      background: var(--canvas-bg);
+      overflow: hidden;
+      isolation: isolate;
+    }
+
+    /* Draggable/resizable items */
+    .canvas-item {
+      position: absolute;
+      box-sizing: border-box;
+      user-select: none;
+      touch-action: none;
+    }
+
+    .canvas-item.selected { outline: 2px solid #3b82f6; outline-offset: 0; }
+
+    /* Resize handles (custom) */
+    .resize-handle { position: absolute; width: 10px; height: 10px; background: #3b82f6; border-radius: 9999px; box-shadow: 0 0 0 1px #fff inset; }
+    .handle-tl { top: -5px; left: -5px; cursor: nwse-resize; }
+    .handle-tr { top: -5px; right: -5px; cursor: nesw-resize; }
+    .handle-bl { bottom: -5px; left: -5px; cursor: nesw-resize; }
+    .handle-br { bottom: -5px; right: -5px; cursor: nwse-resize; }
+
+    /* Wireframe mode overrides */
+    .wireframe .canvas-item {
+      background: #F8FAFC !important; /* slate-50 */
+      color: #0F172A !important;       /* slate-900 */
+      border: 2px dashed #CBD5E1 !important; /* slate-300 */
+      box-shadow: none !important;
+      filter: grayscale(0.2) saturate(0.9);
+    }
+    .wireframe .canvas-item button,
+    .wireframe .canvas-item input,
+    .wireframe .canvas-item textarea,
+    .wireframe .canvas-item select {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      color: #0F172A !important;
+    }
+    .wireframe .image-wrapper img { opacity: 0.25; filter: grayscale(1); }
+    .wireframe .image-wrapper::after {
+      content: 'Billede';
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: #64748B; /* slate-500 */
+      font-size: 12px; letter-spacing: .08em; text-transform: uppercase;
+    }
+
+    /* Helpful hint badge */
+    .hint { pointer-events: none; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+  <!-- App Container -->
+  <div class="min-h-dvh flex flex-col">
+    <!-- Top bar -->
+    <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+      <div class="max-w-[1400px] mx-auto px-4 py-3 flex items-center gap-3">
+        <div class="flex items-center gap-2">
+          <div class="h-8 w-8 rounded-lg bg-brand-500 text-white grid place-items-center font-semibold">M</div>
+          <div class="font-semibold tracking-tight">MockUpper</div>
+        </div>
+        <div class="ml-auto flex flex-wrap items-center gap-2 sm:gap-3">
+          <label class="inline-flex items-center gap-2 text-sm" title="Toggle low/high fidelity">
+            <input id="modeToggle" type="checkbox" class="peer sr-only" />
+            <span class="px-2 py-1.5 rounded-md border border-slate-200 bg-white shadow-sm text-slate-600 peer-checked:bg-slate-900 peer-checked:text-white select-none">Wireframe</span>
+          </label>
+          <div class="hidden sm:flex items-center gap-2" title="Canvas size">
+            <select id="canvasPreset" class="px-2 py-1.5 rounded-md border border-slate-200 bg-white shadow-sm text-sm">
+              <option value="desktop" selected>Web – 1440 × 900</option>
+              <option value="tablet">Tablet – 1024 × 768</option>
+              <option value="iphone">iPhone – 390 × 844</option>
+              <option value="android">Android – 412 × 915</option>
+              <option value="custom">Custom…</option>
+            </select>
+            <input id="canvasW" type="number" class="w-24 px-2 py-1.5 rounded-md border border-slate-200 bg-white shadow-sm text-sm" value="1440" title="Width" />
+            <span class="text-slate-400">×</span>
+            <input id="canvasH" type="number" class="w-24 px-2 py-1.5 rounded-md border border-slate-200 bg-white shadow-sm text-sm" value="900" title="Height" />
+            <button id="applyCanvasSize" class="px-2 py-1.5 rounded-md bg-slate-900 text-white text-sm shadow-sm" title="Apply canvas size">Apply</button>
+          </div>
+
+          <!-- Zoom controls -->
+          <div class="hidden sm:flex items-center gap-1" title="Zoom canvas">
+            <button id="zoomOut" class="px-2 py-1.5 rounded-md border border-slate-200 bg-white shadow-sm text-sm" aria-label="Zoom out">−</button>
+            <span id="zoomPct" class="px-2 py-1.5 rounded-md border border-slate-200 bg-white shadow-sm text-xs w-14 text-center select-none">100%</span>
+            <button id="zoomIn" class="px-2 py-1.5 rounded-md border border-slate-200 bg-white shadow-sm text-sm" aria-label="Zoom in">+</button>
+            <button id="zoomReset" class="px-2 py-1.5 rounded-md border border-slate-200 bg-white shadow-sm text-xs" aria-label="Reset zoom">Reset</button>
+          </div>
+          <div class="flex items-center gap-2" title="Export your mockup">
+            <button id="exportHTML" class="px-3 py-1.5 rounded-md border border-slate-200 bg-white shadow-sm text-sm">Export HTML</button>
+            <button id="exportPNG" class="px-3 py-1.5 rounded-md bg-brand-600 hover:bg-brand-700 text-white shadow-sm text-sm">PNG</button>
+            <button id="exportJPEG" class="px-3 py-1.5 rounded-md bg-brand-600 hover:bg-brand-700 text-white shadow-sm text-sm">JPEG</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main -->
+    <main class="flex-1 max-w-[1400px] mx-auto w-full px-2 sm:px-4 py-4 grid grid-cols-12 gap-4">
+      <!-- Sidebar / Toolbox -->
+      <aside class="col-span-12 md:col-span-3 xl:col-span-2">
+        <div class="sticky top-[64px] space-y-3">
+          <div class="rounded-xl border border-slate-200 bg-white shadow-smooth">
+            <div class="px-3 py-2 border-b border-slate-100 text-sm font-medium">Components</div>
+            <div>
+              <!-- Tabs -->
+              <div class="px-3 pt-3 flex gap-1">
+                <button data-tab="web" class="tab-btn px-2 py-1.5 rounded-md text-xs bg-slate-900 text-white" title="Web components">Web</button>
+                <button data-tab="ios" class="tab-btn px-2 py-1.5 rounded-md text-xs hover:bg-slate-100" title="iOS components">iOS</button>
+                <button data-tab="android" class="tab-btn px-2 py-1.5 rounded-md text-xs hover:bg-slate-100" title="Android components">Android</button>
+              </div>
+              <div class="p-3 space-y-3">
+                <!-- Web components -->
+                <div data-panel="web" class="grid grid-cols-2 gap-2">
+                  <button class="tool-btn" data-type="web-button" title="Add button">Button</button>
+                  <button class="tool-btn" data-type="web-heading" title="Add heading">Heading</button>
+                  <button class="tool-btn" data-type="web-text" title="Add text">Text</button>
+                  <button class="tool-btn" data-type="web-image" title="Add image">Image</button>
+                  <button class="tool-btn" data-type="web-input" title="Add input field">Input</button>
+                  <button class="tool-btn" data-type="web-form" title="Add form">Form</button>
+                  <button class="tool-btn" data-type="web-navbar" title="Add navigation">Navbar</button>
+                </div>
+                <!-- iOS components -->
+                <div data-panel="ios" class="hidden grid grid-cols-2 gap-2">
+                  <button class="tool-btn" data-type="ios-button" title="Add iOS button">iOS Button</button>
+                  <button class="tool-btn" data-type="ios-tabbar" title="Add iOS tab bar">Tab Bar</button>
+                  <button class="tool-btn" data-type="ios-listitem" title="Add list item">List</button>
+                  <button class="tool-btn" data-type="ios-segmented" title="Add segmented control">Segment</button>
+                </div>
+                <!-- Android components -->
+                <div data-panel="android" class="hidden grid grid-cols-2 gap-2">
+                  <button class="tool-btn" data-type="android-button" title="Add Material button">Material Button</button>
+                  <button class="tool-btn" data-type="android-card" title="Add card">Card</button>
+                  <button class="tool-btn" data-type="android-fab" title="Add floating action button">FAB</button>
+                  <button class="tool-btn" data-type="android-drawer" title="Add navigation drawer">Drawer</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-smooth text-xs text-slate-600 leading-relaxed">
+            <div class="font-medium text-slate-800 mb-1">Tips</div>
+            <ul class="list-disc pl-4 space-y-1">
+              <li>Drag to move. Use corners to resize.</li>
+              <li>Double-click text/buttons to edit text.</li>
+              <li>Press Delete to remove the selected element.</li>
+              <li>Toggle <em>Wireframe</em> for low/high fidelity.</li>
+            </ul>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Canvas Area -->
+      <section class="col-span-12 md:col-span-9 xl:col-span-10">
+        <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-smooth">
+      <div class="mb-2 flex items-center justify-between">
+            <div class="text-sm text-slate-600">Workspace</div>
+            <div class="text-xs text-slate-400">Tip: Keep an element selected to see handles</div>
+          </div>
+            <div class="relative overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div id="canvasWrap" class="min-w-full min-h-[60vh] grid place-items-center overflow-auto">
+              <div id="canvas" class="rounded-md bg-white shadow-inner ring-1 ring-slate-200 origin-top-left" style="width:1440px;height:900px;">
+                <div class="absolute inset-0 grid place-items-center pointer-events-none">
+                  <div class="hint text-slate-400 text-sm">Click a component on the left to add it to the canvas</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+      <footer class="py-6 text-center text-xs text-slate-500">
+        Built with love by <span class="font-medium text-slate-600">ThordalEnterprise</span> – everything runs in your browser. Open source on 
+        <a class="underline hover:no-underline text-slate-700" href="https://github.com/ThordalEnterprise/mockupper" target="_blank" rel="noopener">GitHub</a>, contributions welcome. Code is AI-generated.
+      </footer>
+  </div>
+
+  <!-- Templates & Script -->
+  <script>
+    const $ = (sel, ctx=document) => ctx.querySelector(sel);
+    const $$ = (sel, ctx=document) => Array.from(ctx.querySelectorAll(sel));
+
+    const canvas = $('#canvas');
+    const modeToggle = $('#modeToggle');
+    const exportHTMLBtn = $('#exportHTML');
+    const exportPNGBtn = $('#exportPNG');
+    const exportJPEGBtn = $('#exportJPEG');
+    const zoomInBtn = $('#zoomIn');
+    const zoomOutBtn = $('#zoomOut');
+    const zoomResetBtn = $('#zoomReset');
+    const zoomPct = $('#zoomPct');
+    const canvasWrap = $('#canvasWrap');
+
+    const presetSel = $('#canvasPreset');
+    const inputW = $('#canvasW');
+    const inputH = $('#canvasH');
+    const applyCanvasBtn = $('#applyCanvasSize');
+
+    // Tabs logic
+    $$('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = btn.getAttribute('data-tab');
+        $$('.tab-btn').forEach(b => b.classList.remove('bg-slate-900','text-white'));
+        btn.classList.add('bg-slate-900','text-white');
+        $$('[data-panel]').forEach(p => p.classList.add('hidden'));
+        $(`[data-panel="${target}"]`).classList.remove('hidden');
+      });
+    });
+
+    // Toolbox buttons
+    $$('.tool-btn').forEach(btn => {
+      btn.classList.add('px-2','py-2','rounded-md','border','border-slate-200','bg-white','hover:bg-slate-50','text-xs','text-left','shadow-sm');
+      btn.addEventListener('click', () => addComponent(btn.getAttribute('data-type')));
+    });
+
+    // Mode toggle
+    modeToggle.addEventListener('change', () => {
+      canvas.classList.toggle('wireframe', modeToggle.checked);
+    });
+
+    // Canvas size presets
+    presetSel.addEventListener('change', () => {
+      const v = presetSel.value;
+      const map = {
+        desktop: [1440, 900],
+        tablet: [1024, 768],
+        iphone: [390, 844],
+        android: [412, 915]
+      };
+      if (map[v]) {
+        inputW.value = map[v][0];
+        inputH.value = map[v][1];
+      }
+      if (v !== 'custom') applyCanvasSize();
+    });
+
+    applyCanvasBtn.addEventListener('click', applyCanvasSize);
+
+    function applyCanvasSize() {
+      const w = Math.max(200, Number(inputW.value) || 1440);
+      const h = Math.max(200, Number(inputH.value) || 900);
+      canvas.style.width = w + 'px';
+      canvas.style.height = h + 'px';
+    }
+
+    // Zoom support
+    let zoom = 1;
+    function setZoom(nextZoom) {
+      zoom = Math.min(3, Math.max(0.25, nextZoom));
+      canvas.style.transform = `scale(${zoom})`;
+      zoomPct && (zoomPct.textContent = Math.round(zoom * 100) + '%');
+    }
+    zoomInBtn?.addEventListener('click', () => setZoom(zoom * 1.1));
+    zoomOutBtn?.addEventListener('click', () => setZoom(zoom / 1.1));
+    zoomResetBtn?.addEventListener('click', () => setZoom(1));
+    // Ctrl/Cmd + wheel for zoom
+    canvasWrap?.addEventListener('wheel', (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        setZoom(zoom + delta);
+      }
+    }, { passive: false });
+
+    // Utilities
+    let zCounter = 10;
+    function createBaseItem({ left=40, top=40, width=200, height=60 } = {}) {
+      const el = document.createElement('div');
+      el.className = 'canvas-item select-none cursor-move';
+      el.style.left = left + 'px';
+      el.style.top = top + 'px';
+      el.style.width = width + 'px';
+      el.style.height = height + 'px';
+      el.style.zIndex = String(++zCounter);
+
+      // Handles
+      const tl = document.createElement('div'); tl.className = 'resize-handle handle-tl';
+      const tr = document.createElement('div'); tr.className = 'resize-handle handle-tr';
+      const bl = document.createElement('div'); bl.className = 'resize-handle handle-bl';
+      const br = document.createElement('div'); br.className = 'resize-handle handle-br';
+      el.appendChild(tl); el.appendChild(tr); el.appendChild(bl); el.appendChild(br);
+
+      // Selection
+      el.addEventListener('mousedown', () => selectItem(el));
+
+      return el;
+    }
+
+    function selectItem(el) {
+      $$('.canvas-item').forEach(x => x.classList.remove('selected'));
+      el.classList.add('selected');
+      el.style.zIndex = String(++zCounter);
+    }
+
+    // Delete selected with Delete key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        const selected = $('.canvas-item.selected');
+        if (selected && canvas.contains(selected)) selected.remove();
+      }
+    });
+
+    // Component factories
+    function addComponent(type) {
+      let el;
+      switch (type) {
+        // Web
+        case 'web-button': el = makeWebButton(); break;
+        case 'web-heading': el = makeWebHeading(); break;
+        case 'web-text': el = makeWebText(); break;
+        case 'web-image': el = makeWebImage(); break;
+        case 'web-input': el = makeWebInput(); break;
+        case 'web-form': el = makeWebForm(); break;
+        case 'web-navbar': el = makeWebNavbar(); break;
+        // iOS
+        case 'ios-button': el = makeIOSButton(); break;
+        case 'ios-tabbar': el = makeIOSTabBar(); break;
+        case 'ios-listitem': el = makeIOSListItem(); break;
+        case 'ios-segmented': el = makeIOSSegment(); break;
+        // Android
+        case 'android-button': el = makeAndroidButton(); break;
+        case 'android-card': el = makeAndroidCard(); break;
+        case 'android-fab': el = makeAndroidFAB(); break;
+        case 'android-drawer': el = makeAndroidDrawer(); break;
+        default: return;
+      }
+      canvas.appendChild(el);
+      enhanceInteractive(el);
+      selectItem(el);
+    }
+
+    // Web components
+    function makeWebButton() {
+      const el = createBaseItem({ width: 140, height: 44 });
+      const btn = document.createElement('button');
+      btn.className = 'h-full w-full rounded-md bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium shadow-sm';
+      btn.textContent = 'Primary Button';
+      btn.title = 'Double-click to edit text';
+      btn.addEventListener('dblclick', () => makeEditable(btn));
+      el.appendChild(btn);
+      return el;
+    }
+
+    function makeWebHeading() {
+      const el = createBaseItem({ width: 380, height: 64 });
+      const h = document.createElement('div');
+      h.className = 'h-full w-full flex items-center px-3 text-3xl font-semibold';
+      h.textContent = 'Heading';
+      h.title = 'Double-click to edit text';
+      h.addEventListener('dblclick', () => makeEditable(h));
+      el.appendChild(h);
+      return el;
+    }
+
+    function makeWebText() {
+      const el = createBaseItem({ width: 420, height: 80 });
+      const p = document.createElement('div');
+      p.className = 'h-full w-full p-3 text-sm leading-6 text-slate-700';
+      p.textContent = 'This is sample text. Double-click to edit.';
+      p.title = 'Double-click to edit text';
+      p.addEventListener('dblclick', () => makeEditable(p));
+      el.appendChild(p);
+      return el;
+    }
+
+    function makeWebImage() {
+      const el = createBaseItem({ width: 260, height: 180 });
+      const wrap = document.createElement('div');
+      wrap.className = 'image-wrapper relative h-full w-full overflow-hidden rounded-md border border-slate-200 bg-slate-100';
+      const img = document.createElement('img');
+      img.src = 'https://images.unsplash.com/photo-1503264116251-35a269479413?q=80&w=1200&auto=format&fit=crop';
+      img.crossOrigin = 'anonymous';
+      img.className = 'h-full w-full object-cover';
+      img.alt = 'Image';
+      img.title = 'Right-click to change image (paste URL)';
+      wrap.appendChild(img);
+      wrap.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const url = prompt('Indsæt billede-URL:');
+        if (url) { img.crossOrigin = 'anonymous'; img.src = url; }
+      });
+      el.appendChild(wrap);
+      return el;
+    }
+
+    function makeWebInput() {
+      const el = createBaseItem({ width: 260, height: 44 });
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.placeholder = 'Type here…';
+      input.className = 'h-full w-full rounded-md border border-slate-300 px-3 text-sm shadow-sm';
+      el.appendChild(input);
+      return el;
+    }
+
+    function makeWebForm() {
+      const el = createBaseItem({ width: 360, height: 220 });
+      const wrap = document.createElement('div');
+      wrap.className = 'h-full w-full rounded-lg border border-slate-200 bg-white p-4 shadow-sm flex flex-col gap-3';
+      wrap.innerHTML = `
+        <label class="text-xs text-slate-500">Name</label>
+        <input class="rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Your name" />
+        <label class="text-xs text-slate-500">Email</label>
+        <input class="rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="you@mail.com" />
+        <button class="mt-auto rounded-md bg-slate-900 text-white px-3 py-2 text-sm">Submit</button>
+      `;
+      el.appendChild(wrap);
+      return el;
+    }
+
+    function makeWebNavbar() {
+      const el = createBaseItem({ width: 800, height: 56, top: 10, left: 10 });
+      const bar = document.createElement('div');
+      bar.className = 'h-full w-full rounded-md border border-slate-200 bg-white shadow-sm flex items-center justify-between px-4';
+      bar.innerHTML = '<div class="font-semibold">Logo</div><div class="flex gap-4 text-sm text-slate-600"><span>Home</span><span>Products</span><span>Contact</span></div>';
+      el.appendChild(bar);
+      return el;
+    }
+
+    // iOS
+    function makeIOSButton() {
+      const el = createBaseItem({ width: 160, height: 44 });
+      const btn = document.createElement('button');
+      btn.className = 'h-full w-full rounded-full bg-slate-900 text-white text-sm font-medium shadow-sm';
+      btn.textContent = 'iOS Button';
+      btn.title = 'Double-click to edit text';
+      btn.addEventListener('dblclick', () => makeEditable(btn));
+      el.appendChild(btn);
+      return el;
+    }
+
+    function makeIOSTabBar() {
+      const el = createBaseItem({ width: 360, height: 64 });
+      const bar = document.createElement('div');
+      bar.className = 'h-full w-full rounded-xl border border-slate-200 bg-white shadow-sm grid grid-cols-3 text-xs text-slate-600';
+      bar.innerHTML = '<div class="grid place-items-center">Home</div><div class="grid place-items-center">Search</div><div class="grid place-items-center">Profile</div>';
+      el.appendChild(bar);
+      return el;
+    }
+
+    function makeIOSListItem() {
+      const el = createBaseItem({ width: 360, height: 64 });
+      const cell = document.createElement('div');
+      cell.className = 'h-full w-full rounded-lg border border-slate-200 bg-white px-4 flex items-center justify-between';
+      cell.innerHTML = '<div class="font-medium">List item</div><div class="text-slate-400">›</div>';
+      el.appendChild(cell);
+      return el;
+    }
+
+    function makeIOSSegment() {
+      const el = createBaseItem({ width: 260, height: 36 });
+      const seg = document.createElement('div');
+      seg.className = 'h-full w-full rounded-full bg-slate-100 p-1 grid grid-cols-3 gap-1 text-xs';
+      seg.innerHTML = `
+        <div class="rounded-full bg-white shadow-sm grid place-items-center">First</div>
+        <div class="rounded-full grid place-items-center">Second</div>
+        <div class="rounded-full grid place-items-center">Third</div>
+      `;
+      el.appendChild(seg);
+      return el;
+    }
+
+    // Android
+    function makeAndroidButton() {
+      const el = createBaseItem({ width: 180, height: 44 });
+      const btn = document.createElement('button');
+      btn.className = 'h-full w-full rounded-md bg-brand-600 text-white text-sm font-medium shadow-[0_2px_0_#1f2937]';
+      btn.textContent = 'Material Button';
+      btn.title = 'Double-click to edit text';
+      btn.addEventListener('dblclick', () => makeEditable(btn));
+      el.appendChild(btn);
+      return el;
+    }
+
+    function makeAndroidCard() {
+      const el = createBaseItem({ width: 300, height: 180 });
+      const card = document.createElement('div');
+      card.className = 'h-full w-full rounded-lg border border-slate-200 bg-white shadow-smooth overflow-hidden';
+      card.innerHTML = `
+        <div class="h-2/3 bg-slate-100"></div>
+        <div class="p-3 space-y-1">
+          <div class="font-medium">Card title</div>
+          <div class="text-xs text-slate-500">Card subtitle</div>
+        </div>
+      `;
+      el.appendChild(card);
+      return el;
+    }
+
+    function makeAndroidFAB() {
+      const el = createBaseItem({ width: 56, height: 56 });
+      const fab = document.createElement('button');
+      fab.className = 'h-full w-full rounded-full bg-brand-600 text-white grid place-items-center text-xl shadow-lg';
+      fab.textContent = '+';
+      el.appendChild(fab);
+      return el;
+    }
+
+    function makeAndroidDrawer() {
+      const el = createBaseItem({ width: 260, height: 400, left: 0, top: 0 });
+      const drawer = document.createElement('div');
+      drawer.className = 'h-full w-full border border-slate-200 bg-white shadow-smooth p-3 text-sm space-y-2';
+      drawer.innerHTML = `
+        <div class="font-semibold mb-2">Navigation</div>
+        <div class="space-y-1 text-slate-600">
+          <div>Home</div><div>Profile</div><div>Settings</div>
+        </div>
+      `;
+      el.appendChild(drawer);
+      return el;
+    }
+
+    // Editable helper
+    function makeEditable(node) {
+      node.setAttribute('contenteditable', 'true');
+      node.focus();
+      const onBlur = () => { node.removeAttribute('contenteditable'); node.removeEventListener('blur', onBlur); };
+      node.addEventListener('blur', onBlur);
+    }
+
+    // Interact.js setup
+    function enhanceInteractive(target) {
+      interact(target)
+        .draggable({
+          ignoreFrom: '.resize-handle',
+          listeners: {
+            move (event) {
+              const { dx, dy } = event;
+              const x = (parseFloat(target.style.left) || 0) + dx;
+              const y = (parseFloat(target.style.top) || 0) + dy;
+              const parent = target.parentElement.getBoundingClientRect();
+              const rect = target.getBoundingClientRect();
+              const maxX = parent.width - rect.width;
+              const maxY = parent.height - rect.height;
+              target.style.left = Math.max(0, Math.min(x, maxX)) + 'px';
+              target.style.top = Math.max(0, Math.min(y, maxY)) + 'px';
+            }
+          },
+          modifiers: [
+            interact.modifiers.snap({
+              targets: [interact.createSnapGrid({ x: 4, y: 4 })],
+              range: Infinity, relativePoints: [ { x: 0, y: 0 } ]
+            }),
+            interact.modifiers.restrictRect({ restriction: 'parent' })
+          ]
+        })
+        .resizable({
+          edges: { left: '.handle-tl, .handle-bl', right: '.handle-tr, .handle-br', bottom: '.handle-bl, .handle-br', top: '.handle-tl, .handle-tr' },
+          listeners: {
+            move (event) {
+              let { x, y } = event.target.dataset;
+              x = (x|0); y = (y|0);
+              // apply changes
+              const w = Math.max(24, event.rect.width);
+              const h = Math.max(24, event.rect.height);
+              event.target.style.width = w + 'px';
+              event.target.style.height = h + 'px';
+              x += event.deltaRect.left;
+              y += event.deltaRect.top;
+              event.target.style.left = Math.max(0, x) + 'px';
+              event.target.style.top = Math.max(0, y) + 'px';
+              event.target.dataset.x = x;
+              event.target.dataset.y = y;
+            }
+          },
+          modifiers: [
+            interact.modifiers.snapSize({ targets: [interact.createSnapGrid({ x: 4, y: 4 })] }),
+            interact.modifiers.restrictEdges({ outer: 'parent' })
+          ]
+        });
+    }
+
+    // Observe dynamically added items to re-bind interact when needed (fallback)
+    const obs = new MutationObserver((mut) => {
+      mut.forEach(m => {
+        m.addedNodes.forEach(n => { if (n.classList && n.classList.contains('canvas-item')) enhanceInteractive(n); });
+      })
+    });
+    obs.observe(canvas, { childList: true });
+
+    // Export: HTML
+    exportHTMLBtn.addEventListener('click', () => {
+      const exportDoc = buildExportHTML();
+      const blob = new Blob([exportDoc], { type: 'text/html;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'mockup.html';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    function buildExportHTML() {
+      // clone canvas so we can tidy it
+      const clone = canvas.cloneNode(true);
+      // remove selection and handles
+      $$('.selected', clone).forEach(el => el.classList.remove('selected'));
+      $$('.resize-handle', clone).forEach(h => h.remove());
+      // ensure absolute pos is kept; remove interactjs data
+      $$('.canvas-item', clone).forEach(el => {
+        el.classList.remove('cursor-move');
+        el.removeAttribute('data-x');
+        el.removeAttribute('data-y');
+        // disable contenteditable if any
+        el.querySelectorAll('[contenteditable]')?.forEach(n => n.removeAttribute('contenteditable'));
+      });
+
+      const w = parseInt(canvas.style.width || canvas.getBoundingClientRect().width);
+      const h = parseInt(canvas.style.height || canvas.getBoundingClientRect().height);
+
+      const doc = [
+        '<!doctype html>',
+        '<html lang="da">',
+        '<head>',
+        '<meta charset="utf-8"/>',
+        '<meta name="viewport" content="width=device-width, initial-scale=1"/>',
+        '<title>Eksporteret mockup</title>',
+        '<link rel="preconnect" href="https://cdn.tailwindcss.com"/>',
+        '<scr' + 'ipt src="https://cdn.tailwindcss.com"></scr' + 'ipt>',
+        '<style>',
+        '  body { background:#f8fafc; color:#0f172a; }',
+        '  #canvas { position: relative; background:#ffffff; margin: 24px auto; box-shadow: 0 1px 0 #e2e8f0 inset; border: 1px solid #e2e8f0; border-radius: 8px; }',
+        '  .canvas-item { position:absolute; box-sizing:border-box; }',
+        '</style>',
+        '</head>',
+        '<body>',
+        '  <div id="canvas" style="width:' + w + 'px;height:' + h + 'px;">',
+        '    ' + clone.innerHTML,
+        '  </div>',
+        '</body>',
+        '</html>'
+      ].join('\n');
+
+      return doc;
+    }
+
+    // Export: PNG & JPEG using html2canvas
+    async function exportImage(mime='image/png') {
+      const node = canvas;
+      const scale = 2; // higher quality
+      const canvasEl = await html2canvas(node, {
+        backgroundColor: '#ffffff',
+        scale,
+        useCORS: true
+      });
+      const dataUrl = canvasEl.toDataURL(mime, 0.95);
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = mime === 'image/png' ? 'mockup.png' : 'mockup.jpg';
+      a.click();
+    }
+
+    exportPNGBtn.addEventListener('click', () => exportImage('image/png'));
+    exportJPEGBtn.addEventListener('click', () => exportImage('image/jpeg'));
+
+    // Initial
+    applyCanvasSize();
+  </script>
+</body>
+</html> 
