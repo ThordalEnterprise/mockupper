@@ -3,8 +3,49 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MockUpper – Web & Mobile Mockups</title>
+  <title>FreeMockUpper – Web & Mobile Mockups</title>
   <meta name="description" content="Create detailed website and app mockups directly in the browser. Drag, drop, resize. Export as HTML/CSS or image.">
+  <link rel="icon" type="image/svg+xml" href="imgs/favicon.svg?v=2" sizes="any">
+  <link rel="shortcut icon" href="imgs/favicon.svg?v=2">
+  <link rel="mask-icon" href="imgs/favicon.svg?v=2" color="#3b82f6">
+  <script>
+    // Fallback: generér PNG favicon direkte fra embedded SVG (fungerer også ved file://)
+    (function ensurePngFaviconFallback() {
+      const svgText = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="FreeMockUpper Favicon">\n  <defs>\n    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">\n      <stop offset="0%" stop-color="#3b82f6"/>\n      <stop offset="100%" stop-color="#1d4ed8"/>\n    </linearGradient>\n  </defs>\n  <rect x="4" y="4" width="56" height="56" rx="12" fill="url(#g)"/>\n  <g fill="#ffffff">\n    <rect x="22" y="16" width="8" height="32" rx="2"/>\n    <rect x="30" y="16" width="16" height="8" rx="2"/>\n    <rect x="30" y="28" width="12" height="8" rx="2"/>\n  </g>\n</svg>`;
+      function setIcon(href, rel, type) {
+        const id = `dynamic-${rel}`;
+        let link = document.getElementById(id);
+        if (!link) {
+          link = document.createElement('link');
+          link.id = id;
+          link.rel = rel;
+          document.head.appendChild(link);
+        }
+        link.href = href;
+        if (type) link.type = type;
+      }
+      try {
+        const svgBlob = new Blob([svgText], { type: 'image/svg+xml' });
+        const svgUrl = URL.createObjectURL(svgBlob);
+        const img = new Image();
+        img.onload = function () {
+          const sizes = [32, 180];
+          sizes.forEach(size => {
+            const canvas = document.createElement('canvas');
+            canvas.width = size; canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, size, size);
+            const dataUrl = canvas.toDataURL('image/png');
+            if (size === 32) setIcon(dataUrl, 'icon', 'image/png');
+            if (size === 180) setIcon(dataUrl, 'apple-touch-icon', 'image/png');
+          });
+          URL.revokeObjectURL(svgUrl);
+        };
+        img.onerror = function () { URL.revokeObjectURL(svgUrl); };
+        img.src = svgUrl;
+      } catch (_) { /* ignore */ }
+    })();
+  </script>
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -119,8 +160,8 @@
     <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60">
       <div class="max-w-[1400px] mx-auto px-4 py-3 flex items-center gap-3">
         <div class="flex items-center gap-2">
-          <div class="h-8 w-8 rounded-lg bg-brand-500 text-white grid place-items-center font-semibold">M</div>
-          <div class="font-semibold tracking-tight">MockUpper</div>
+          <div class="h-8 w-8 rounded-lg bg-brand-500 text-white grid place-items-center font-semibold">F</div>
+          <div class="font-semibold tracking-tight">FreeMockUpper</div>
         </div>
         <div class="ml-auto flex flex-wrap items-center gap-2 sm:gap-3">
           <label class="inline-flex items-center gap-2 text-sm cursor-pointer" title="Toggle low/high fidelity">
