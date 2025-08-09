@@ -93,6 +93,23 @@
 
     /* Helpful hint badge */
     .hint { pointer-events: none; }
+
+    /* Component palette accents */
+    #toolbox.web { border-color:#c7d2fe; box-shadow: 0 2px 10px rgba(59,130,246,0.08); }
+    #toolbox.ios { border-color:#cbd5e1; box-shadow: 0 2px 10px rgba(15,23,42,0.08); }
+    #toolbox.android { border-color:#bbf7d0; box-shadow: 0 2px 10px rgba(34,197,94,0.08); }
+    .tab-btn.active { background:#0f172a; color:#fff; }
+
+    /* Small previews on tool buttons */
+    .tool-btn { display: flex; align-items: center; gap: 8px; padding-left: 10px; }
+    .tool-btn::before {
+      content: '';
+      display: inline-block;
+      width: 18px; height: 12px; border-radius: 3px; background: #e2e8f0; box-shadow: inset 0 0 0 1px #cbd5e1; flex: 0 0 auto;
+    }
+    .tool-btn[data-type^="web-"]::before { background:#e0e7ff; box-shadow: inset 0 0 0 1px #c7d2fe; }
+    .tool-btn[data-type^="ios-"]::before { background:#e2e8f0; box-shadow: inset 0 0 0 1px #cbd5e1; border-radius: 9999px; }
+    .tool-btn[data-type^="android-"]::before { background:#dcfce7; box-shadow: inset 0 0 0 1px #86efac; }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-900">
@@ -106,21 +123,21 @@
           <div class="font-semibold tracking-tight">MockUpper</div>
         </div>
         <div class="ml-auto flex flex-wrap items-center gap-2 sm:gap-3">
-          <label class="inline-flex items-center gap-2 text-sm" title="Toggle low/high fidelity">
+          <label class="inline-flex items-center gap-2 text-sm cursor-pointer" title="Toggle low/high fidelity">
             <input id="modeToggle" type="checkbox" class="peer sr-only" />
-            <span class="px-2 py-1.5 rounded-md border border-slate-200 bg-white shadow-sm text-slate-600 peer-checked:bg-slate-900 peer-checked:text-white select-none">Wireframe</span>
+            <span class="px-2 py-1.5 rounded-md border border-slate-200 bg-white shadow-sm text-slate-600 select-none transition hover:bg-slate-50 hover:border-slate-300 hover:shadow-md active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-brand-400 peer-checked:bg-slate-900 peer-checked:text-white">Wireframe</span>
           </label>
           <div class="hidden sm:flex items-center gap-2" title="Canvas size">
             <select id="canvasPreset" class="px-2 py-1.5 rounded-md border border-slate-200 bg-white shadow-sm text-sm">
-              <option value="desktop" selected>Web – 1440 × 900</option>
+              <option value="desktop">Web – 1440 × 900</option>
               <option value="tablet">Tablet – 1024 × 768</option>
-              <option value="iphone">iPhone – 390 × 844</option>
+              <option value="iphone" selected>iPhone – 390 × 844</option>
               <option value="android">Android – 412 × 915</option>
               <option value="custom">Custom…</option>
             </select>
-            <input id="canvasW" type="number" class="w-24 px-2 py-1.5 rounded-md border border-slate-200 bg-white shadow-sm text-sm" value="1440" title="Width" />
+            <input id="canvasW" type="number" class="w-24 px-2 py-1.5 rounded-md border border-slate-200 bg-white shadow-sm text-sm" value="390" title="Width" />
             <span class="text-slate-400">×</span>
-            <input id="canvasH" type="number" class="w-24 px-2 py-1.5 rounded-md border border-slate-200 bg-white shadow-sm text-sm" value="900" title="Height" />
+            <input id="canvasH" type="number" class="w-24 px-2 py-1.5 rounded-md border border-slate-200 bg-white shadow-sm text-sm" value="844" title="Height" />
             <button id="applyCanvasSize" class="px-2 py-1.5 rounded-md bg-slate-900 text-white text-sm shadow-sm" title="Apply canvas size">Apply</button>
           </div>
 
@@ -129,12 +146,11 @@
             <button id="zoomOut" class="px-2 py-1.5 rounded-md border border-slate-200 bg-white shadow-sm text-sm" aria-label="Zoom out">−</button>
             <span id="zoomPct" class="px-2 py-1.5 rounded-md border border-slate-200 bg-white shadow-sm text-xs w-14 text-center select-none">100%</span>
             <button id="zoomIn" class="px-2 py-1.5 rounded-md border border-slate-200 bg-white shadow-sm text-sm" aria-label="Zoom in">+</button>
-            <button id="zoomReset" class="px-2 py-1.5 rounded-md border border-slate-200 bg-white shadow-sm text-xs" aria-label="Reset zoom">Reset</button>
+            <button id="canvasReset" class="px-2 py-1.5 rounded-md border border-slate-200 bg-white shadow-sm text-xs" aria-label="Reset canvas">Reset Canvas</button>
           </div>
           <div class="flex items-center gap-2" title="Export your mockup">
             <button id="exportHTML" class="px-3 py-1.5 rounded-md border border-slate-200 bg-white shadow-sm text-sm">Export HTML</button>
             <button id="exportPNG" class="px-3 py-1.5 rounded-md bg-brand-600 hover:bg-brand-700 text-white shadow-sm text-sm">PNG</button>
-            <button id="exportJPEG" class="px-3 py-1.5 rounded-md bg-brand-600 hover:bg-brand-700 text-white shadow-sm text-sm">JPEG</button>
           </div>
         </div>
       </div>
@@ -145,8 +161,11 @@
       <!-- Sidebar / Toolbox -->
       <aside class="col-span-12 md:col-span-3 xl:col-span-2">
         <div class="sticky top-[64px] space-y-3">
-          <div class="rounded-xl border border-slate-200 bg-white shadow-smooth">
-            <div class="px-3 py-2 border-b border-slate-100 text-sm font-medium">Components</div>
+          <div id="toolbox" class="rounded-xl border border-slate-200 bg-white shadow-smooth">
+            <div class="px-3 py-2 border-b border-slate-100 text-sm font-medium flex items-center gap-2">
+              <span class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-brand-100 text-brand-700 text-xs font-semibold">UI</span>
+              <span>Components</span>
+            </div>
             <div>
               <!-- Tabs -->
               <div class="px-3 pt-3 flex gap-1">
@@ -164,6 +183,9 @@
                   <button class="tool-btn" data-type="web-input" title="Add input field">Input</button>
                   <button class="tool-btn" data-type="web-form" title="Add form">Form</button>
                   <button class="tool-btn" data-type="web-navbar" title="Add navigation">Navbar</button>
+                  <button class="tool-btn" data-type="web-card" title="Add card">Card</button>
+                  <button class="tool-btn" data-type="web-hero" title="Add hero section">Hero</button>
+                  <button class="tool-btn" data-type="web-footer" title="Add footer">Footer</button>
                 </div>
                 <!-- iOS components -->
                 <div data-panel="ios" class="hidden grid grid-cols-2 gap-2">
@@ -171,6 +193,8 @@
                   <button class="tool-btn" data-type="ios-tabbar" title="Add iOS tab bar">Tab Bar</button>
                   <button class="tool-btn" data-type="ios-listitem" title="Add list item">List</button>
                   <button class="tool-btn" data-type="ios-segmented" title="Add segmented control">Segment</button>
+                  <button class="tool-btn" data-type="ios-navbar" title="Add iOS navigation bar">Nav Bar</button>
+                  <button class="tool-btn" data-type="ios-switch" title="Add iOS switch">Switch</button>
                 </div>
                 <!-- Android components -->
                 <div data-panel="android" class="hidden grid grid-cols-2 gap-2">
@@ -178,6 +202,8 @@
                   <button class="tool-btn" data-type="android-card" title="Add card">Card</button>
                   <button class="tool-btn" data-type="android-fab" title="Add floating action button">FAB</button>
                   <button class="tool-btn" data-type="android-drawer" title="Add navigation drawer">Drawer</button>
+                  <button class="tool-btn" data-type="android-bottomnav" title="Add bottom navigation">Bottom Nav</button>
+                  <button class="tool-btn" data-type="android-appbar" title="Add app bar">App Bar</button>
                 </div>
               </div>
             </div>
@@ -204,9 +230,9 @@
           </div>
             <div class="relative overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-4">
             <div id="canvasWrap" class="min-w-full min-h-[60vh] grid place-items-center overflow-auto">
-              <div id="canvas" class="rounded-md bg-white shadow-inner ring-1 ring-slate-200 origin-top-left" style="width:1440px;height:900px;">
+              <div id="canvas" class="rounded-md bg-white shadow-inner ring-1 ring-slate-200 origin-top-left" style="width:390px;height:844px;">
                 <div class="absolute inset-0 grid place-items-center pointer-events-none">
-                  <div class="hint text-slate-400 text-sm">Click a component on the left to add it to the canvas</div>
+                  <div class="hint text-slate-400 text-sm px-6 text-center">Pick a component on the left. Drag to place; use corners to resize.</div>
                 </div>
               </div>
             </div>
@@ -230,12 +256,13 @@
     const modeToggle = $('#modeToggle');
     const exportHTMLBtn = $('#exportHTML');
     const exportPNGBtn = $('#exportPNG');
-    const exportJPEGBtn = $('#exportJPEG');
+    // const exportJPEGBtn = $('#exportJPEG');
     const zoomInBtn = $('#zoomIn');
     const zoomOutBtn = $('#zoomOut');
     const zoomResetBtn = $('#zoomReset');
     const zoomPct = $('#zoomPct');
     const canvasWrap = $('#canvasWrap');
+    const canvasResetBtn = $('#canvasReset');
 
     const presetSel = $('#canvasPreset');
     const inputW = $('#canvasW');
@@ -246,10 +273,16 @@
     $$('.tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const target = btn.getAttribute('data-tab');
-        $$('.tab-btn').forEach(b => b.classList.remove('bg-slate-900','text-white'));
-        btn.classList.add('bg-slate-900','text-white');
+        // active tab button style
+        $$('.tab-btn').forEach(b => b.classList.remove('active','bg-slate-900','text-white'));
+        btn.classList.add('active');
+        // switch panels
         $$('[data-panel]').forEach(p => p.classList.add('hidden'));
         $(`[data-panel="${target}"]`).classList.remove('hidden');
+        // toolbox accent
+        const toolbox = document.getElementById('toolbox');
+        toolbox.classList.remove('web','ios','android');
+        toolbox.classList.add(target);
       });
     });
 
@@ -308,6 +341,18 @@
       }
     }, { passive: false });
 
+    // Reset canvas: clears all items and restores default iPhone size and zoom
+    canvasResetBtn?.addEventListener('click', () => {
+      // Clear items
+      $$('.canvas-item', canvas).forEach(n => n.remove());
+      clearSelection();
+      // Reset size to preset iPhone
+      presetSel.value = 'iphone';
+      inputW.value = 390; inputH.value = 844; applyCanvasSize();
+      // Reset zoom
+      setZoom(1);
+    });
+
     // Utilities
     let zCounter = 10;
     function createBaseItem({ left=40, top=40, width=200, height=60 } = {}) {
@@ -338,13 +383,73 @@
       el.style.zIndex = String(++zCounter);
     }
 
+    function clearSelection() {
+      $$('.canvas-item').forEach(x => x.classList.remove('selected'));
+    }
+
+    function getSelected() { return $('.canvas-item.selected'); }
+
+    function clampPosition(el) {
+      const parentWidth = el.parentElement.clientWidth;
+      const parentHeight = el.parentElement.clientHeight;
+      const elWidth = el.offsetWidth;
+      const elHeight = el.offsetHeight;
+      const maxX = Math.max(0, parentWidth - elWidth);
+      const maxY = Math.max(0, parentHeight - elHeight);
+      const left = Math.max(0, Math.min(parseFloat(el.style.left) || 0, maxX));
+      const top = Math.max(0, Math.min(parseFloat(el.style.top) || 0, maxY));
+      el.style.left = Math.round(left) + 'px';
+      el.style.top = Math.round(top) + 'px';
+    }
+
+    function moveSelectedBy(dx, dy) {
+      const el = getSelected(); if (!el) return;
+      const scale = typeof zoom === 'number' && zoom > 0 ? zoom : 1;
+      const adjX = (parseFloat(el.style.left) || 0) + dx / scale;
+      const adjY = (parseFloat(el.style.top) || 0) + dy / scale;
+      el.style.left = Math.round(adjX) + 'px';
+      el.style.top = Math.round(adjY) + 'px';
+      clampPosition(el);
+    }
+
+    function duplicateSelected() {
+      const el = getSelected(); if (!el) return;
+      const copy = el.cloneNode(true);
+      copy.style.left = ((parseFloat(el.style.left) || 0) + 16) + 'px';
+      copy.style.top = ((parseFloat(el.style.top) || 0) + 16) + 'px';
+      canvas.appendChild(copy);
+      enhanceInteractive(copy);
+      selectItem(copy);
+    }
+
     // Delete selected with Delete key
     document.addEventListener('keydown', (e) => {
+      const selected = getSelected();
+      // Delete
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        const selected = $('.canvas-item.selected');
         if (selected && canvas.contains(selected)) selected.remove();
+        return;
       }
+      // Nudge with arrows
+      const step = e.shiftKey ? 10 : 1;
+      if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) {
+        e.preventDefault();
+        if (e.key === 'ArrowLeft') moveSelectedBy(-step, 0);
+        if (e.key === 'ArrowRight') moveSelectedBy(step, 0);
+        if (e.key === 'ArrowUp') moveSelectedBy(0, -step);
+        if (e.key === 'ArrowDown') moveSelectedBy(0, step);
+        return;
+      }
+      const mod = e.metaKey || e.ctrlKey;
+      // Duplicate
+      if (mod && e.key.toLowerCase() === 'd') { e.preventDefault(); duplicateSelected(); return; }
+      // Layering
+      if (mod && e.key === ']') { e.preventDefault(); if (selected) selected.style.zIndex = String(++zCounter); return; }
+      if (mod && e.key === '[') { e.preventDefault(); if (selected) selected.style.zIndex = '1'; return; }
     });
+
+    // Deselect when clicking empty canvas
+    canvas.addEventListener('mousedown', (e) => { if (e.target === canvas) clearSelection(); });
 
     // Component factories
     function addComponent(type) {
@@ -358,16 +463,23 @@
         case 'web-input': el = makeWebInput(); break;
         case 'web-form': el = makeWebForm(); break;
         case 'web-navbar': el = makeWebNavbar(); break;
+        case 'web-card': el = makeWebCard(); break;
+        case 'web-hero': el = makeWebHero(); break;
+        case 'web-footer': el = makeWebFooter(); break;
         // iOS
         case 'ios-button': el = makeIOSButton(); break;
         case 'ios-tabbar': el = makeIOSTabBar(); break;
         case 'ios-listitem': el = makeIOSListItem(); break;
         case 'ios-segmented': el = makeIOSSegment(); break;
+        case 'ios-navbar': el = makeIOSNavBar(); break;
+        case 'ios-switch': el = makeIOSSwitch(); break;
         // Android
         case 'android-button': el = makeAndroidButton(); break;
         case 'android-card': el = makeAndroidCard(); break;
         case 'android-fab': el = makeAndroidFAB(); break;
         case 'android-drawer': el = makeAndroidDrawer(); break;
+        case 'android-bottomnav': el = makeAndroidBottomNav(); break;
+        case 'android-appbar': el = makeAndroidAppBar(); break;
         default: return;
       }
       canvas.appendChild(el);
@@ -463,6 +575,30 @@
       return el;
     }
 
+    function makeWebCard() {
+      const el = createBaseItem({ width: 320, height: 200 });
+      const card = document.createElement('div');
+      card.className = 'h-full w-full rounded-lg border border-slate-200 bg-white shadow-smooth overflow-hidden flex flex-col';
+      card.innerHTML = '<div class="h-1/2 bg-slate-100"></div><div class="p-3 space-y-1"><div class="font-medium">Card title</div><div class="text-xs text-slate-500">Card description</div><button class="mt-2 rounded-md bg-slate-900 text-white px-3 py-2 text-xs self-start">Action</button></div>';
+      el.appendChild(card); return el;
+    }
+
+    function makeWebHero() {
+      const el = createBaseItem({ width: 360, height: 220 });
+      const hero = document.createElement('div');
+      hero.className = 'h-full w-full rounded-lg border border-slate-200 bg-gradient-to-br from-slate-50 to-white shadow-smooth flex flex-col items-start justify-center p-6';
+      hero.innerHTML = '<div class="text-2xl font-semibold mb-2">Hero headline</div><div class="text-sm text-slate-600 mb-4">Short supporting subheading.</div><button class="rounded-md bg-brand-600 text-white px-3 py-2 text-sm">Get started</button>';
+      el.appendChild(hero); return el;
+    }
+
+    function makeWebFooter() {
+      const el = createBaseItem({ width: 360, height: 80 });
+      const footer = document.createElement('div');
+      footer.className = 'h-full w-full rounded-md border border-slate-200 bg-white shadow-sm flex items-center justify-between px-4 text-xs text-slate-600';
+      footer.innerHTML = '<div>© 2025 Your Company</div><div class="flex gap-3"><span>Privacy</span><span>Terms</span><span>Contact</span></div>';
+      el.appendChild(footer); return el;
+    }
+
     // iOS
     function makeIOSButton() {
       const el = createBaseItem({ width: 160, height: 44 });
@@ -504,6 +640,23 @@
       `;
       el.appendChild(seg);
       return el;
+    }
+
+    function makeIOSNavBar() {
+      const el = createBaseItem({ width: 360, height: 56 });
+      const bar = document.createElement('div');
+      bar.className = 'h-full w-full rounded-xl border border-slate-200 bg-white shadow-sm flex items-center justify-between px-4';
+      bar.innerHTML = '<div class="text-sm">Back</div><div class="font-medium">Title</div><div class="text-sm">Edit</div>';
+      el.appendChild(bar); return el;
+    }
+
+    function makeIOSSwitch() {
+      const el = createBaseItem({ width: 64, height: 36 });
+      const wrap = document.createElement('label');
+      wrap.className = 'block h-full w-full rounded-full bg-slate-200 relative cursor-pointer after:content-[" "] after:absolute after:top-1 after:left-1 after:h-7 after:w-7 after:bg-white after:rounded-full after:transition-all peer-checked:bg-slate-900 peer-checked:after:left-8';
+      const chk = document.createElement('input'); chk.type='checkbox'; chk.className='peer sr-only';
+      const box = document.createElement('div'); box.className='h-full w-full relative'; box.appendChild(chk); box.appendChild(wrap);
+      el.appendChild(box); return el;
     }
 
     // Android
@@ -556,6 +709,22 @@
       return el;
     }
 
+    function makeAndroidBottomNav() {
+      const el = createBaseItem({ width: 360, height: 64 });
+      const nav = document.createElement('div');
+      nav.className = 'h-full w-full rounded-md border border-slate-200 bg-white shadow-sm grid grid-cols-3 text-xs text-slate-600';
+      nav.innerHTML = '<div class="grid place-items-center">Home</div><div class="grid place-items-center">Search</div><div class="grid place-items-center">Profile</div>';
+      el.appendChild(nav); return el;
+    }
+
+    function makeAndroidAppBar() {
+      const el = createBaseItem({ width: 360, height: 56 });
+      const bar = document.createElement('div');
+      bar.className = 'h-full w-full rounded-md bg-slate-900 text-white flex items-center justify-between px-3';
+      bar.innerHTML = '<div class="text-sm">☰</div><div class="font-medium">Title</div><div class="text-sm">⋮</div>';
+      el.appendChild(bar); return el;
+    }
+
     // Editable helper
     function makeEditable(node) {
       node.setAttribute('contenteditable', 'true');
@@ -571,42 +740,50 @@
           ignoreFrom: '.resize-handle',
           listeners: {
             move (event) {
-              const { dx, dy } = event;
-              const x = (parseFloat(target.style.left) || 0) + dx;
-              const y = (parseFloat(target.style.top) || 0) + dy;
-              const parent = target.parentElement.getBoundingClientRect();
-              const rect = target.getBoundingClientRect();
-              const maxX = parent.width - rect.width;
-              const maxY = parent.height - rect.height;
-              target.style.left = Math.max(0, Math.min(x, maxX)) + 'px';
-              target.style.top = Math.max(0, Math.min(y, maxY)) + 'px';
+              const scale = typeof zoom === 'number' && zoom > 0 ? zoom : 1;
+              const dx = event.dx / scale;
+              const dy = event.dy / scale;
+              const nextX = (parseFloat(target.style.left) || 0) + dx;
+              const nextY = (parseFloat(target.style.top) || 0) + dy;
+              const parentWidth = target.parentElement.clientWidth;
+              const parentHeight = target.parentElement.clientHeight;
+              const elWidth = target.offsetWidth;
+              const elHeight = target.offsetHeight;
+              const maxX = Math.max(0, parentWidth - elWidth);
+              const maxY = Math.max(0, parentHeight - elHeight);
+              target.style.left = Math.max(0, Math.min(nextX, maxX)) + 'px';
+              target.style.top = Math.max(0, Math.min(nextY, maxY)) + 'px';
             }
           },
           modifiers: [
             interact.modifiers.snap({
               targets: [interact.createSnapGrid({ x: 4, y: 4 })],
               range: Infinity, relativePoints: [ { x: 0, y: 0 } ]
-            }),
-            interact.modifiers.restrictRect({ restriction: 'parent' })
+            })
+            // Note: no restrictRect here; we clamp manually so items can touch edges
           ]
         })
         .resizable({
           edges: { left: '.handle-tl, .handle-bl', right: '.handle-tr, .handle-br', bottom: '.handle-bl, .handle-br', top: '.handle-tl, .handle-tr' },
           listeners: {
             move (event) {
-              let { x, y } = event.target.dataset;
-              x = (x|0); y = (y|0);
-              // apply changes
-              const w = Math.max(24, event.rect.width);
-              const h = Math.max(24, event.rect.height);
+              const scale = typeof zoom === 'number' && zoom > 0 ? zoom : 1;
+              // Brug aktuelle positioner som udgangspunkt for at undgå hop
+              let x = parseFloat(event.target.style.left) || 0;
+              let y = parseFloat(event.target.style.top) || 0;
+              const w = Math.max(24, event.rect.width / scale);
+              const h = Math.max(24, event.rect.height / scale);
               event.target.style.width = w + 'px';
               event.target.style.height = h + 'px';
-              x += event.deltaRect.left;
-              y += event.deltaRect.top;
-              event.target.style.left = Math.max(0, x) + 'px';
-              event.target.style.top = Math.max(0, y) + 'px';
-              event.target.dataset.x = x;
-              event.target.dataset.y = y;
+              x += event.deltaRect.left / scale;
+              y += event.deltaRect.top / scale;
+              // clamp within parent
+              const parentWidth = event.target.parentElement.clientWidth;
+              const parentHeight = event.target.parentElement.clientHeight;
+              const maxX = Math.max(0, parentWidth - w);
+              const maxY = Math.max(0, parentHeight - h);
+              event.target.style.left = Math.max(0, Math.min(x, maxX)) + 'px';
+              event.target.style.top = Math.max(0, Math.min(y, maxY)) + 'px';
             }
           },
           modifiers: [
@@ -682,12 +859,15 @@
     // Export: PNG & JPEG using html2canvas
     async function exportImage(mime='image/png') {
       const node = canvas;
+      const prevTransform = node.style.transform;
+      node.style.transform = 'none';
       const scale = 2; // higher quality
       const canvasEl = await html2canvas(node, {
         backgroundColor: '#ffffff',
         scale,
         useCORS: true
       });
+      node.style.transform = prevTransform;
       const dataUrl = canvasEl.toDataURL(mime, 0.95);
       const a = document.createElement('a');
       a.href = dataUrl;
@@ -696,9 +876,10 @@
     }
 
     exportPNGBtn.addEventListener('click', () => exportImage('image/png'));
-    exportJPEGBtn.addEventListener('click', () => exportImage('image/jpeg'));
 
     // Initial
+    // Set default preset to iPhone
+    presetSel.value = 'iphone';
     applyCanvasSize();
   </script>
 </body>
